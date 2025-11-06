@@ -23,7 +23,8 @@ from typing import Tuple, Iterable
 from itertools import combinations
 import numpy as np
 
-def to_cnf(input_path: str) -> Tuple[Iterable[Iterable[int]], int]:
+def to_cnf(input_path:str, 
+           verbose:bool = False) -> Tuple[Iterable[Iterable[int]], int]:
     """
     Read puzzle from input_path and return (clauses, num_vars).
 
@@ -42,7 +43,6 @@ def to_cnf(input_path: str) -> Tuple[Iterable[Iterable[int]], int]:
 
     # Meshgrid - cols, rows for each entry
     c, r = np.meshgrid(np.arange(N), np.arange(N))
-
     # variable mapping
     rn2 = r * N**2
     cn = c * N
@@ -66,11 +66,13 @@ def to_cnf(input_path: str) -> Tuple[Iterable[Iterable[int]], int]:
     c6 = clues(no_val, mat)
 
     constraints = c1 + c2 + c3 + c4 + c5 + c6
-    print(f'Total {len(constraints)} constraints / clauses and {nvars} propositional variables')
+    if verbose:
+        print(f'Total {len(constraints)} clauses (constraints) and {nvars} propositional variables')
+    return constraints, nvars
 
-    # return constraints, nvars
 
-def clues(no_val:np.ndarray, mat:np.ndarray)->list[list[int]]:
+def clues(no_val:np.ndarray, mat:np.ndarray,
+          verbose:bool = False)->list[list[int]]:
     N, _ = mat.shape
     # encode observed values per cell -> variables
     true_var = no_val + mat
@@ -78,10 +80,12 @@ def clues(no_val:np.ndarray, mat:np.ndarray)->list[list[int]]:
     nonzero = mat > 0
     # observed true variables (one clause per observed variable)
     constraint = np.array(true_var[nonzero])[:, None].tolist()
-    print(f'{len(constraint)} clue clauses')
+    if verbose:
+        print(f'{len(constraint)} clue clauses')
     return constraint
 
-def one_per_cell(all_vars:np.ndarray)->list[list[int]]:
+def one_per_cell(all_vars:np.ndarray,
+                 verbose:bool = False)->list[list[int]]:
     '''
     More efficient to implement in one loop instead of 2
     '''
@@ -93,19 +97,19 @@ def one_per_cell(all_vars:np.ndarray)->list[list[int]]:
             # At least one constraint (1 OR 2 OR 3)
             cell_options = all_vars[ri, ci, :]
             min_one_constraint.append(cell_options.tolist())
-            
             # At most one constraint
             # DNF (1 AND ~2 AND ~3) OR (~1 AND 2 AND ~3) OR (~1 AND ~2 AND 3)
             # CNF (1 OR 2 OR 3) AND (~1 OR ~2) AND (~1 OR ~3) AND (~2 OR ~3)
             not_cell_options = -cell_options
             for comb in combinations(not_cell_options, r = 2): 
                 max_one_constraint.append(list(comb))
-    
     constraint = min_one_constraint + max_one_constraint
-    print(f'{len(constraint)} cell clauses')
+    if verbose:
+        print(f'{len(constraint)} cell clauses')
     return constraint
 
-def one_per_row(all_vars:np.ndarray)->list[list[int]]:
+def one_per_row(all_vars:np.ndarray,
+                verbose:bool = False)->list[list[int]]:
     N, _, _ = all_vars.shape
     constraint = []
     for ri in range(N):
@@ -117,11 +121,12 @@ def one_per_row(all_vars:np.ndarray)->list[list[int]]:
             not_val_row = - val_row
             for comb in combinations(not_val_row, r = 2):
                 constraint.append(list(comb))
-    
-    print(f'{len(constraint)} row clauses')
+    if verbose:
+        print(f'{len(constraint)} row clauses')
     return constraint
 
-def one_per_col(all_vars:np.ndarray)->list[list[int]]:
+def one_per_col(all_vars:np.ndarray,
+                verbose:bool=False)->list[list[int]]:
     N, _, _ = all_vars.shape
     constraint = []
     for ci in range(N):
@@ -133,11 +138,12 @@ def one_per_col(all_vars:np.ndarray)->list[list[int]]:
             not_val_col = - val_col
             for comb in combinations(not_val_col, r = 2):
                 constraint.append(list(comb))
-    
-    print(f'{len(constraint)} column clauses')
+    if verbose:
+        print(f'{len(constraint)} column clauses')
     return constraint
 
-def one_per_box(all_vars:np.ndarray, box_size:int)->list[list[int]]:
+def one_per_box(all_vars:np.ndarray, box_size:int,
+                verbose:bool = False)->list[list[int]]:
     N, _, _ = all_vars.shape
     constraint = []
     boxes = [all_vars[bri:bri+box_size, bci:bci+box_size, :] 
@@ -153,10 +159,12 @@ def one_per_box(all_vars:np.ndarray, box_size:int)->list[list[int]]:
             not_val_box = -val_box.ravel()
             for comb in combinations(not_val_box, r=2):
                 constraint.append(list(comb))
-    print(f'{len(constraint)} box clauses')
+    if verbose:
+        print(f'{len(constraint)} box clauses')
     return constraint
 
-def non_consecutive(all_vars:np.ndarray)->list[list[int]]:
+def non_consecutive(all_vars:np.ndarray, 
+                    verbose:bool = False)->list[list[int]]:
     N, _, _ = all_vars.shape
     val_indices = np.arange(N)
 
@@ -185,6 +193,6 @@ def non_consecutive(all_vars:np.ndarray)->list[list[int]]:
             row_constraints += sgf
     
     constraint = row_constraints + col_constraints
-
-    print(f'{len(constraint)} non-consecutive clauses')
+    if verbose:
+        print(f'{len(constraint)} non-consecutive clauses')
     return constraint

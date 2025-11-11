@@ -50,7 +50,11 @@ def parse_dimacs(input_path: str) -> Tuple[Iterable[Iterable[int]], int]:
 
 
     line = file.readline()
-
+    while not line.startswith('p'):
+       line = file.readline()
+       if 'satisfiable' in line.lower():
+          print(line[:-1])
+    
     components = line.strip().split(" ")
 
     if len(components)!= 4 or components[0]!="p" or components[1]!="cnf":
@@ -64,7 +68,7 @@ def parse_dimacs(input_path: str) -> Tuple[Iterable[Iterable[int]], int]:
 
     line=file.readline()
     while(line):
-       numbers = [int(x) for x in line.strip().split(" ")]
+       numbers = [int(x) for x in line.strip().split(" ") if x != '']
 
        if(numbers[-1]!=0):
           print("Wrong format! Clause lines must be terminated with a 0")

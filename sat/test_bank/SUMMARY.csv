@@ -1,0 +1,11 @@
+id,name,nvars,nclauses,status,example_model_DIMACS,notes
+1,01_sat_xor2,2,2,SAT,-1 2,SAT; exactly-one of {1,2}.
+2,02_unsat_full2,2,4,UNSAT,,UNSAT; four 2-clauses contradict.
+3,03_sat_exactly_one_3,3,4,SAT,-1 -2 3,SAT; exactly one of {1,2,3}.
+4,04_unsat_php_3_2,6,9,UNSAT,,UNSAT; Pigeonhole 3→2.
+5,05_sat_backtrack_x1_false,4,5,SAT,-1 -2 3 4,SAT; x1=True leads to conflict → must backtrack to x1=False.
+6,06_unsat_branch_both_sides,3,4,UNSAT,,UNSAT; whichever way you branch on x1, unit conflict arises later.
+7,07_sat_deeper_chain,6,7,SAT,-1 -2 3 -4 -5 6,SAT; needs multiple decisions before units appear.
+8,08_sat_3sat_mix,3,5,SAT,-1 2 3,SAT; no initial units.
+9,09_sat_two_xors_link,4,5,SAT,-1 2 -3 4,SAT; coupled XORs.
+10,10_sat_exactly_one_break,3,7,SAT,-1 -2 3,SAT; over-constrained variant.

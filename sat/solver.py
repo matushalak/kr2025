@@ -15,6 +15,8 @@ def choose_literal(clauses: Iterable[Iterable[int]],
                    method:Literal['random', 'MOM'],
                    nvars:int)->int:
     nclauses = len(clauses)
+    if np.random.random_sample() > 0.2:
+        method = 'random'
     match method:
         case 'random':
             chosen = False
@@ -153,7 +155,7 @@ def solve_cnf(clauses: Iterable[Iterable[int]], num_vars: int
       ("SAT", model)  where model is a list of ints (DIMACS-style), or
       ("UNSAT", None)
     """
-    print(len(clauses), 'clauses')
+    # print(len(clauses), 'clauses')
     output = {True : "SAT",
               False : "UNSAT"}
     sat, model = dpll(clauses, None, num_vars)

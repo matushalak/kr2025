@@ -23,8 +23,9 @@ from typing import Tuple, Iterable
 from itertools import combinations
 import numpy as np
 
-def to_cnf(input_path:str, 
-           verbose:bool = False) -> Tuple[Iterable[Iterable[int]], int]:
+def to_cnf(input_path:str|np.ndarray, 
+           verbose:bool = False,
+           nonconsecutive:bool = True) -> Tuple[Iterable[Iterable[int]], int]:
     """
     Read puzzle from input_path and return (clauses, num_vars).
 
@@ -32,7 +33,10 @@ def to_cnf(input_path:str,
     - num_vars: must be N^3 with N = grid size
     """
     # Load puzzle
-    mat:np.ndarray = np.loadtxt(input_path, dtype=int)
+    if isinstance(input_path, np.ndarray):
+        mat = input_path
+    else:
+        mat:np.ndarray = np.loadtxt(input_path, dtype=int)
     # Puzzle size
     N, _ = mat.shape
     nvars = int(N**3)
@@ -62,7 +66,10 @@ def to_cnf(input_path:str,
     c2 = one_per_row(all_vars)
     c3 = one_per_col(all_vars)
     c4 = one_per_box(all_vars, B)
-    c5 = non_consecutive(all_vars)
+    if nonconsecutive:
+        c5 = non_consecutive(all_vars)
+    else:
+        c5 = []
     c6 = clues(no_val, mat)
 
     constraints = c1 + c2 + c3 + c4 + c5 + c6

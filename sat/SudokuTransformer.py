@@ -11,12 +11,11 @@ from torch.utils.data import DataLoader
 from typing import Tuple
 
 class AttConfig:
-    def __init__(self, n_embd=12, n_head=3, attn_pdrop=0.05, resid_pdrop=0.1, block_size=81):
+    def __init__(self, n_embd=12, n_head=3, attn_pdrop=0.05, resid_pdrop=0.1):
         self.n_embd = n_embd
         self.n_head = n_head
         self.attn_pdrop = attn_pdrop
         self.resid_pdrop = resid_pdrop
-        self.block_size = block_size
 
 class SudokuTransformer(nn.Module):
     def __init__(self, config:AttConfig = AttConfig(), 

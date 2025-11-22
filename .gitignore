@@ -8,6 +8,7 @@ __pycache__/
 
 # Folders
 sudoku/
+transformer_logs/
 
 # Distribution / packaging
 .Python

@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 from typing import Tuple
 
 class AttConfig:
-    def __init__(self, n_embd=12, n_head=3, attn_pdrop=0.05, resid_pdrop=0.1):
+    def __init__(self, n_embd=12, n_head=3, attn_pdrop=0.01, resid_pdrop=0.05):
         self.n_embd = n_embd
         self.n_head = n_head
         self.attn_pdrop = attn_pdrop

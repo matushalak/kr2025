@@ -11,11 +11,13 @@ from torch.utils.data import DataLoader
 from typing import Tuple
 
 class AttConfig:
-    def __init__(self, n_embd=12, n_head=3, attn_pdrop=0.01, resid_pdrop=0.05):
+    def __init__(self, n_embd=12, n_head=3, attn_pdrop=0.01, resid_pdrop=0.05,
+                 recurrence = 1):
         self.n_embd = n_embd
         self.n_head = n_head
         self.attn_pdrop = attn_pdrop
         self.resid_pdrop = resid_pdrop
+        self.recurrence = recurrence
 
 class SudokuTransformer(nn.Module):
     def __init__(self, config:AttConfig = AttConfig(), 
@@ -24,6 +26,8 @@ class SudokuTransformer(nn.Module):
                  mlp_expansion:int = 4):
         super().__init__()
         self.config = config
+        if self.config.recurrence < 1:
+            self.config.recurrence = 1
         self.sudoku_size = sudoku_size
 
         # Each 0-9 digit gets its embedding
@@ -72,7 +76,9 @@ class SudokuTransformer(nn.Module):
         be = self.BoxEmbedding(input_batch_boxes)
         x = de + re + ce + be
         # Run through a chain of transformer blocks
-        x = self.Transformer(x)
+        # XXX: recurrence test -> significant performance boost
+        for _ in range(self.config.recurrence):
+            x = self.Transformer(x)
         # Run through final linear layer
         # (B, T, d_embd) @ (d_embd, sudoku_size) -> (B, T, sudoku_size)
         # Applied separately for each token over the embedding dimension

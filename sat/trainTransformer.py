@@ -38,20 +38,24 @@ def train(model:SudokuTransformer,
           lambda_rules:float = 1.0,
           Valloader:DataLoader | None = None,
           logger:SummaryWriter | None = None,
-          previous_epochs:int = 0):
+          previous_epochs:int = 0,
+          Optimizer:optim.Optimizer | None = None):
     if torch.backends.mps.is_available():
         device = torch.device('mps')
     else:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     CEloss = nn.CrossEntropyLoss(ignore_index=-1)
-    Optimizer = optim.AdamW(model.parameters(), lr=lr, betas=(0.9, 0.95), weight_decay=0.01)
+    if Optimizer is None:
+        print(f'Initiating new AdamW optimizer with lr = {lr}')
+        Optimizer = optim.AdamW(model.parameters(), lr=lr, betas=(0.9, 0.95), weight_decay=0.01)
     model.to(device)
     # Ramp-up for rule loss weigh
     if previous_epochs == 0:
-        rules_ramp = torch.linspace(0.01,lambda_rules, epochs, device=device)
+        rules_ramp = torch.linspace(1e-8,lambda_rules, epochs, device=device)
     else:
-        rules_ramp = torch.full(size=epochs, fill_value=lambda_rules, device=device)
+        rules_ramp = torch.full(size = (epochs, ), fill_value=lambda_rules, device=device)
+    
     for e in range(epochs):
         running_loss = 0.0
         running_ce_loss = 0.0
@@ -59,39 +63,49 @@ def train(model:SudokuTransformer,
         model.train()
         for X, Y in tqdm(Trainloader):
             X, Y = X.to(device), Y.to(device)
-            model.zero_grad()
+            
+            Optimizer.zero_grad()
             ypred = model(X) # outputs logits (B, T, sudoku_size)
             
             # Rule-enforcing loss
+            empties = (X == 0)
+            clues = ~empties
             # row / col / box constraints
             B, T, S = ypred.shape
             box_size = int(S**0.5)
             probs = torch.softmax(ypred, dim = -1)
-            probs_board = probs.view(B, S, S, S) # (B, rows, cols, digits)
+            # Givens / clues should are 'one-hot' in softmax
+            clues_one_hot = nn.functional.one_hot(Y-1, num_classes=S).float()
+            # effective probabilities (after taking care of clues)
+            probs_eff = (probs * empties[..., None]) + (clues_one_hot * clues[..., None])
+            probs_board = probs_eff.view(B, S, S, S) # (B, rows, cols, digits)
             # (B, box_row, box_col, cell_row, cell_col, digits)
-            probs_boxes = probs_board.view(B, box_size, box_size, box_size, box_size, S) 
-            row_sum = probs_board.sum(dim = 2) # (B, rows, digits)
-            col_sum = probs_board.sum(dim = 1) # (B, cols, digits)
-            box_sum = probs_boxes.sum(dim = (3,4)) # (B, box_row, box_col, digits)
-            box_sum = box_sum.view(B, S, S) # (B, box, digits)
+            probs_boxes = probs_board.view(B, box_size, box_size, box_size, box_size, S)
+            # NOTE: Using sum of probabilities instead of square probabilities 
+            # was converging to uniform dist! at harder curricula 40+ 
+            row_mass = (probs_board ** 2).sum(dim = 2) # (B, rows, digits)
+            col_mass = (probs_board ** 2).sum(dim = 1) # (B, cols, digits)
+            box_mass = (probs_boxes ** 2).sum(dim = (3,4)) # (B, box_row, box_col, digits)
+            box_mass = box_mass.view(B, S, S) # (B, box, digits)
             # Calculate individual losses (row/col/box sum for each digit should be 1)
             # sum over digits (dim = 2) good: initially larger than CE but drops quickly
             # make contribution sudokusize * bigger: sum over rows / cols / boxes
             # initially huge but downweighed by ramp, 
             # by the time it's relevant, decreased substantially
-            row_loss = ((row_sum - 1)**2).sum(dim = (1, 2)).mean()
-            col_loss = ((col_sum - 1)**2).sum(dim = (1, 2)).mean()
-            box_loss = ((box_sum - 1)**2).sum(dim = (1, 2)).mean()
+            row_loss = ((row_mass - 1)**2).sum(dim = (1, 2)).mean()
+            col_loss = ((col_mass - 1)**2).sum(dim = (1, 2)).mean()
+            box_loss = ((box_mass - 1)**2).sum(dim = (1, 2)).mean()
             rules_loss = row_loss + col_loss + box_loss
 
+            # need to match 0-8 indices instead of 1-9 digits
+            Y -= 1
             # For CE: Only judge on missing entries
-            # NOTE: actually harms training!!!
+            # NOTE: maybe actually harms training!!!
             # learning to also predict clues can only help not harm
-            # mask = (X == 0)
-            # Y[~mask] = -1 # ignored in loss calculation
+            # Y[clues] = -1 # ignored in loss calculation
             
             # CE expects class dimension as 2nd
-            ce_loss = CEloss(ypred.transpose(1,2), Y-1)
+            ce_loss = CEloss(ypred.transpose(1,2), Y)
             
             loss = ce_loss + (rules_ramp[e] * rules_loss)
             loss.backward()
@@ -167,44 +181,6 @@ def test(model, Testloader, logger):
     print(f'Average test accuracy - board: {running_board_acc / len(Testloader)}', 
           f'cell: {running_cell_acc / len(Testloader)}', flush=True)
 
-    
-
-def curriculum(guess_stages:list[int] = [30, 35, 40, 45, 50, None],
-               epochs_per_stage:int = 10,
-               batch_size = 2**6,#5, 6, 8
-               dataset_proportion:float = .01,# 0.001, .002, .01
-               lambd_rules:float = 1, # 1,
-               lr:float = 5e-4,):
-    # logger setup
-    # Logger:SummaryWriter = versioned_logger()
-    Logger = None
-
-    # Model config
-    model_config = AttConfig(n_embd=128, n_head=4, 
-                             resid_pdrop=0.01, attn_pdrop=0.0
-                             )
-    _SudokuModel_ = SudokuTransformer(sudoku_size=9, 
-                                      n_transformer_blocks=8, 
-                                      mlp_expansion=8,
-                                      config=model_config)
-    cum_epochs = 0
-    # Loop through stages of curriculum
-    for guess in guess_stages:
-        print(guess, ' empty cells to guess.')
-        run_(batch_size=batch_size, 
-             dataset_proportion=dataset_proportion,
-             lambd_rules = lambd_rules, lr = lr,
-             epochs=epochs_per_stage, 
-             NGUESS=guess,
-             SudokuModel=_SudokuModel_,
-             logger=Logger,
-             prev_epochs=cum_epochs)
-        cum_epochs += epochs_per_stage
-    
-    # test_set = SudokuDataset(split='test')
-    # test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=False)
-    # test(_SudokuModel_, test_loader, Logger)
-    # Logger.close()
 
 def run_(batch_size = 2**6,#5, 6, 8
          dataset_proportion:float = .01,# 0.001, .002, .01
@@ -214,7 +190,8 @@ def run_(batch_size = 2**6,#5, 6, 8
          NGUESS:int = None,
          SudokuModel:SudokuTransformer = None,
          logger:SummaryWriter = None,
-         prev_epochs:int = 0
+         prev_epochs:int = 0,
+         Optimizer:optim.Optimizer | None = None
          ):
     ''''
     Batch size st at least 100 gradient descent steps per epoch!
@@ -232,11 +209,10 @@ def run_(batch_size = 2**6,#5, 6, 8
     val_loader = DataLoader(val_set, batch_size=batch_size, shuffle=False)
     
     
-    # Model config
-    model_config = AttConfig(n_embd=128, n_head=4, 
-                             resid_pdrop=0.01, attn_pdrop=0.0
-                             )
     if SudokuModel is None:
+        model_config = AttConfig(n_embd=128, n_head=4, 
+                                resid_pdrop=0.01, attn_pdrop=0.0
+                                )
         SudokuModel = SudokuTransformer(sudoku_size=9, 
                                         n_transformer_blocks=8, 
                                         mlp_expansion=8,
@@ -244,10 +220,106 @@ def run_(batch_size = 2**6,#5, 6, 8
 
     train(SudokuModel, Trainloader=train_loader, Valloader=val_loader,
           lr= lr, epochs=epochs, lambda_rules=lambd_rules,
-          logger=logger, previous_epochs=prev_epochs)
+          logger=logger, previous_epochs=prev_epochs,
+          Optimizer=Optimizer)
     
 
+def curriculum(guess_stages:list[int] = [30, 35, 40, 45, 50, None],
+               epochs_per_stage:int|list[int] = 10,
+               batch_size = 2**6,#5, 6, 8
+               dataset_proportion:float = .01,# 0.001, .002, .01
+               lambd_rules:float|list[float] = 1.0, # 1,
+               learning_rate:float|list[float] = 5e-4,
+               recurrence:int = 1):
+    # logger setup
+    Logger:SummaryWriter = versioned_logger()
+    # Logger = None
+
+    # Model config
+    model_config = AttConfig(n_embd=150, n_head=3, 
+                             resid_pdrop=0.01, attn_pdrop=0.005,
+                             recurrence=recurrence
+                             )
+    _SudokuModel_ = SudokuTransformer(sudoku_size=9, 
+                                      n_transformer_blocks=5, 
+                                      mlp_expansion=4,
+                                      config=model_config)
+    cum_epochs = 0
+    if isinstance(epochs_per_stage, list):
+        assert len(epochs_per_stage) == len(guess_stages)
+    if isinstance(lambd_rules, list):
+        assert len(epochs_per_stage) == len(guess_stages)
+    if isinstance(learning_rate, list):
+            assert len(learning_rate) == len(guess_stages)
+            Optimizer = None
+    else:
+        Optimizer = optim.AdamW(_SudokuModel_.parameters(), 
+                                lr=learning_rate, betas=(0.9, 0.95), 
+                                weight_decay=0.01)
+    # Loop through stages of curriculum
+    for ig, guess in enumerate(guess_stages):
+        if isinstance(epochs_per_stage, list):
+            eps = epochs_per_stage[ig]
+        else:
+            eps = epochs_per_stage
+        if isinstance(lambd_rules, list):
+            lambd_ = lambd_rules[ig]
+        else:
+            lambd_ = lambd_rules
+        if isinstance(learning_rate, list):
+            lr = learning_rate[ig]
+        else:
+            lr =  learning_rate
+        if isinstance(batch_size, list):
+            bs = batch_size[ig]
+        else:
+            bs = batch_size
+        print(f'{guess} empty cells to guess | ',
+              f'Training for {eps} epochs | ',
+              f'with {lambd_} weight on sudoku rules loss')
+        run_(batch_size=bs, 
+             dataset_proportion=dataset_proportion,
+             lambd_rules = lambd_, lr = lr,
+             epochs=eps, 
+             NGUESS=guess,
+             SudokuModel=_SudokuModel_,
+             logger=Logger,
+             prev_epochs=cum_epochs,
+             Optimizer = Optimizer)
+        cum_epochs += eps
+    
+    # test_set = SudokuDataset(split='test')
+    # test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=False)
+    # test(_SudokuModel_, test_loader, Logger)
+    # Logger.close()
+
+
 if __name__ == '__main__':
-    curriculum(dataset_proportion=0.01,
-               batch_size=2**6,
-               epochs_per_stage=5)
+    curriculum(dataset_proportion=0.03,
+               batch_size=2**7,
+               # starting at 30, can quickly reach 80% board accuract
+               # starting at 35 much harder
+               guess_stages=[50],
+               epochs_per_stage=[10],
+               lambd_rules = 1e-3,
+               learning_rate= 5e-4,
+               recurrence=4
+               )
+# all below dataset 0.03
+# 3 x Reccurrence
+# v23: added recurrence starting from 36 empties
+# v24: added recurrence starting from 40 empties -> 83% full-board accuracy after 1 epoch
+# v25: recurrent starting at full puzzle at once (too hard, stuck around 2%)
+# v26: recurrent from 50 empties - up to 42% in 10 epochs
+# v27: recurrent curriculum 40-45-50 (5-5-10 epochs) (lr 5e-4) 
+#   - not better than starting from 50 straight away
+# 9 x recurrence
+# v28: recurrent from 50, more recurrence: random (epoch 0&1)
+# 2 x recurrence
+# v29: recurrent from 50, more recurrence: meh
+# 4x recurrence
+# v30: recurrent from 50, more recurrence -> 52.8% BEST
+# 5x recurrence
+# v31: recurrent from 50, more recurrence: random(epoch 0&1)
+
+# v32: 4x recurrent from 50, dataset 0.06 - not big difference from 0.06, just much longer to train

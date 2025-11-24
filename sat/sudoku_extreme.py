@@ -65,10 +65,10 @@ class SudokuDataset(Dataset):
         problem, solution = tensor(problem, dtype=long), tensor(solution, dtype=long)
         dice_roll = rand(1)
 
-        # 10% random chance to include full board
+        # 5% random chance to include full board at any stage
         if self.n_guess is not None and  dice_roll > 0.05:
             nempties = puzzle['question'].count('.')
-            # 20% random chance to include boards with 5 more empties
+            # 25% random chance to include boards with 5 more empties (next stage)
             guess = self.n_guess if dice_roll > 0.3 else self.n_guess + 5
             samples = guess if guess <= nempties else nempties
             empties = (problem == 0)

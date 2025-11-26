@@ -1,0 +1,11 @@
+idx,subdir,puzzle,solved,generations,time_sec,best_conflicts
+0,9_sat,9_sat/sat_000.txt,False,5000,696.4065663329966,2.0
+1,9_sat,9_sat/sat_001.txt,False,5000,768.2035014160065,2.0
+2,9_sat,9_sat/sat_002.txt,False,5000,714.0944580420037,2.0
+3,9_sat,9_sat/sat_003.txt,False,5000,782.0857554579998,8.0
+4,9_sat,9_sat/sat_004.txt,False,5000,778.4956335409952,6.0
+5,9_sat,9_sat/sat_005.txt,False,5000,621.160612290987,2.0
+6,9_sat,9_sat/sat_006.txt,False,5000,777.6967681249953,7.0
+7,9_sat,9_sat/sat_007.txt,False,5000,777.170491249999,9.0
+8,9_sat,9_sat/sat_008.txt,False,5000,782.076412416005,6.0
+9,9_sat,9_sat/sat_009.txt,False,5000,767.2206214579928,4.0

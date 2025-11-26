@@ -2,25 +2,25 @@
 Project for Knowledge Representation Course from MSc. AI @VU. Work by Matúš Halák (DPLL, Transformer), and Thibault Giesbertz (CDCL, Evolutionary algorithm)
 
 ## Top-level directories
-- `SAT-EA` directory contains all custom-written code for testing the SAT solvers and EA's across multiple datasets.
+- `SAT Sudoku` directory contains all custom-written code for testing the SAT solvers and across multiple datasets.
+- `EC Sudoku` directory contains all custom-written code for testing the Evolutionary sudoku solvers and across multiple datasets.
 - `Transformer` directory contains all custom-written code for loading the [sapientinc/sudokuextreme](https://huggingface.co/datasets/sapientinc/sudoku-extreme) dataset, defining and training the Transformer neural network.
+- `SAT-EC Results` contains results for all the SAT and EC experiments. The folder contains the results of each run, with nc standing for non-consecutive puzzles, and hf for the huggingface dataset.
 
 ## Reasoning - SAT
 - 'SAT Sudoku/encoder.py'  Encodes the sudokus into DIMACS CNF file format.
 - 'SAT Sudoku/main.py'  helps to run the encoder and solver on individual puzzles or DIMACS CNF files you give it.
 - 'SAT Sudoku/solver_dpll.py'  DPLL solver implementation
-- 'SAT Sudoku/solver_cdcl.py'  CDCL solver implementation
+- 'SAT Sudoku/solver_cdcl.py'  CDCL solver implementation (3rd place in Knowledge Representation SAT competition)
 - 'SAT Sudoku/hugging_run.py'  Loads the sudoku dataset and runs the encoder adn solver on it, outputing a results.csv file
 - 'SAT Sudoku/nc_run.py'  Loads the non-consecutive sudoku dataset and runs the encoder adn solver on it, outputing a results.csv file
 - 'SAT Sudoku/9_sat/' contains the non-consecutive sudoku puzzles
-## Evolution - EA
+
+## Evolution - EC
 - 'EC Sudoku/ea_solution.py'  contains all the EA logic to solve a sudoku
 - 'EC Sudoku/huggin_puzzle.py' run the ea_solutions on the huggingface sudoku dataset and saves results into csv file
 - 'EC Sudoku/nc_runner.py'  runs the ea_solutions on the non-consecutive dataset and saves results into csv file.
 - 'EC Sudoku/9_sat/' contains the non-consecutive sudoku puzzles
-
-## Results
-- contains the results of each run, with nc standing for non-consecutive puzzles, and hf for the huggingface dataset
 
 ## Deep Learning - Transformer
 - `Transformer/transformer_env.yml` contains the conda environment that was used to develop the Transformer and run the experiments

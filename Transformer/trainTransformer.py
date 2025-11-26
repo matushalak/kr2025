@@ -297,14 +297,15 @@ def curriculum(guess_stages:list[int] = [30, 35, 40, 45, 50, None],
 if __name__ == '__main__':
     curriculum(dataset_proportion=0.03,
                batch_size=2**7,
-               # starting at 30, can quickly reach 80% board accuract
+               # starting at 30, can quickly reach 80% board accuracy
                # starting at 35 much harder
                guess_stages=[50],
                epochs_per_stage=[10],
                lambd_rules = 1e-3,
                learning_rate= 5e-4,
-               recurrence=4
+               recurrence=4 # allows decent performance up to 50 empties!
                )
+# RECURRENT EXPERIMENTS BELOW
 # all below dataset 0.03
 # 3 x Reccurrence
 # v23: added recurrence starting from 36 empties

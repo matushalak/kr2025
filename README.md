@@ -1,5 +1,5 @@
 # Solving sudoku with reasoning, evolution and deep learning
-Project for Knowledge Representation MSc. AI @VU, work by Matus Halak (DPLL, Transformer) and Thibault Giesbertz (CDCL, Evolutionary algorithm)
+Project for Knowledge Representation Course from MSc. AI @VU. Work by Matúš Halák (DPLL, Transformer), and Thibault Giesbertz (CDCL, Evolutionary algorithm)
 
 ## Top-level directories
 - `SAT-EA` directory contains all custom-written code for testing the SAT solvers and EA's across multiple datasets.
